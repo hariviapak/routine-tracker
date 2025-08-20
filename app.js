@@ -87,27 +87,15 @@ class RoutineTracker {
             this.importData();
         });
         
-        document.getElementById('resetDataBtn').addEventListener('click', () => {
-            if (confirm('Are you sure you want to reset the database? This will delete all your data and routines.')) {
-                this.resetDatabase();
+        document.getElementById('deleteAllRoutinesBtn').addEventListener('click', () => {
+            if (confirm('Are you sure you want to delete ALL routines? This will remove all routines but keep your progress data.')) {
+                this.deleteAllRoutines();
             }
         });
         
         document.getElementById('restoreDefaultsBtn').addEventListener('click', () => {
             if (confirm('This will add back the default routines (Water, Medicine, etc.). Continue?')) {
                 this.restoreDefaultRoutines();
-            }
-        });
-        
-        document.getElementById('forceRefreshBtn').addEventListener('click', () => {
-            if (confirm('This will clear all data, cache, and reload the page. Are you sure?')) {
-                this.forceRefresh();
-            }
-        });
-        
-        document.getElementById('nuclearResetBtn').addEventListener('click', () => {
-            if (confirm('⚠️ NUCLEAR RESET: This will completely clear ALL data, cache, and force a fresh start. This is irreversible! Continue?')) {
-                this.nuclearReset();
             }
         });
         
@@ -971,6 +959,42 @@ class RoutineTracker {
             console.error('Error during nuclear reset:', error);
             // Ultimate fallback
             window.location.replace(window.location.href);
+        }
+    }
+    
+    async deleteAllRoutines() {
+        try {
+            console.log('Deleting all routines...');
+            
+            // Clear only the routines store, keep entries
+            const transaction = this.db.transaction([this.routinesStore], 'readwrite');
+            const store = transaction.objectStore(this.routinesStore);
+            const request = store.clear();
+            
+            request.onsuccess = () => {
+                console.log('All routines deleted');
+                // Clear the routines map
+                this.routines.clear();
+                
+                this.showToast('All routines deleted!', 'success');
+                
+                // Refresh displays
+                if (this.currentTab === 'today') {
+                    this.renderTodayView();
+                } else if (this.currentTab === 'routines') {
+                    this.renderRoutinesManagement();
+                } else if (this.currentTab === 'table') {
+                    this.renderTable();
+                }
+            };
+            
+            request.onerror = () => {
+                console.error('Error deleting routines:', request.error);
+                this.showToast('Error deleting routines', 'error');
+            };
+        } catch (error) {
+            console.error('Error deleting routines:', error);
+            this.showToast('Error deleting routines', 'error');
         }
     }
     
