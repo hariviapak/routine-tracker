@@ -469,7 +469,19 @@ class RoutineTracker {
             
             request.onsuccess = () => {
                 this.routines.clear();
+                
+                // Remove duplicates by name
+                const uniqueRoutines = [];
+                const seenNames = new Set();
+                
                 request.result.forEach(routine => {
+                    if (!seenNames.has(routine.name)) {
+                        seenNames.add(routine.name);
+                        uniqueRoutines.push(routine);
+                    }
+                });
+                
+                uniqueRoutines.forEach(routine => {
                     this.routines.set(routine.id, routine);
                 });
                 
@@ -497,9 +509,13 @@ class RoutineTracker {
         
         for (const routine of defaultRoutines) {
             try {
-                const id = await this.saveRoutine(routine);
-                routine.id = id;
-                this.routines.set(id, routine);
+                // Check if routine already exists
+                const existingRoutine = Array.from(this.routines.values()).find(r => r.name === routine.name);
+                if (!existingRoutine) {
+                    const id = await this.saveRoutine(routine);
+                    routine.id = id;
+                    this.routines.set(id, routine);
+                }
             } catch (error) {
                 console.error('Error adding default routine:', error);
             }
@@ -514,8 +530,11 @@ class RoutineTracker {
         tableHead.innerHTML = '<th class="date-header">Date</th>';
         tableBody.innerHTML = '';
         
+        // Debug: Log routines count
+        console.log('Rendering table with', this.routines.size, 'routines');
+        
         // Add routine headers
-        this.routines.forEach(routine => {
+        this.routines.forEach((routine, routineId) => {
             const th = document.createElement('th');
             th.innerHTML = `${routine.icon || ''} ${routine.name}`;
             tableHead.appendChild(th);
@@ -553,8 +572,10 @@ class RoutineTracker {
             if (isToday) dateCell.style.fontWeight = 'bold';
             row.appendChild(dateCell);
             
-            // Routine cells
-            for (const [routineId, routine] of this.routines) {
+            // Routine cells - ensure we iterate in the same order as headers
+            const routineIds = Array.from(this.routines.keys());
+            for (const routineId of routineIds) {
+                const routine = this.routines.get(routineId);
                 const cell = document.createElement('td');
                 const entry = await this.getEntry(date, routineId);
                 
@@ -581,6 +602,9 @@ class RoutineTracker {
             
             tableBody.appendChild(row);
         }
+        
+        // Debug: Log final table structure
+        console.log('Table rendered with', tableBody.children.length, 'rows');
     }
     
     async getEntry(date, routineId) {
