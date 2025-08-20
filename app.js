@@ -215,7 +215,7 @@ class RoutineTracker {
         container.className = `today-routines ${this.currentView}-view`;
         
         for (const [routineId, routine] of this.routines) {
-            const entry = await this.getEntry(this.currentDate, routineId);
+            const entry = await this.getLatestEntry(this.currentDate, routineId);
             const isCompleted = routine.type === 'counter' 
                 ? (entry ? entry.count >= routine.target : false)
                 : (entry ? entry.isDone : false);
@@ -556,7 +556,7 @@ class RoutineTracker {
             // Add ONE cell per routine for this date
             for (const [routineId, routine] of routineList) {
                 const cell = document.createElement('td');
-                const entry = await this.getEntry(date, routineId);
+                const entry = await this.getLatestEntry(date, routineId);
                 
                 if (routine.type === 'counter') {
                     const count = entry ? entry.count : 0;
@@ -585,6 +585,32 @@ class RoutineTracker {
         // Debug: Log final table structure
         console.log('Table rendered with', tableBody.children.length, 'rows');
         console.log('Expected rows:', dates.length);
+    }
+    
+    async getLatestEntry(date, routineId) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction([this.entriesStore], 'readonly');
+            const store = transaction.objectStore(this.entriesStore);
+            const index = store.index('date_routine');
+            const request = index.getAll([date, routineId]);
+            
+            request.onsuccess = () => {
+                const entries = request.result;
+                if (entries && entries.length > 0) {
+                    // Get the latest entry (most recent timestamp or highest ID)
+                    const latestEntry = entries.reduce((latest, current) => {
+                        if (current.timestamp && latest.timestamp) {
+                            return new Date(current.timestamp) > new Date(latest.timestamp) ? current : latest;
+                        }
+                        return current.id > latest.id ? current : latest;
+                    });
+                    resolve(latestEntry);
+                } else {
+                    resolve(null);
+                }
+            };
+            request.onerror = () => reject(request.error);
+        });
     }
     
     async getEntry(date, routineId) {
@@ -714,30 +740,32 @@ class RoutineTracker {
             
             try {
                 const text = await file.text();
-                const importData = JSON.parse(text);
-                
-                // Validate import data
-                if (!importData.routines || !importData.entries) {
-                    throw new Error('Invalid backup file format');
-                }
+                const data = JSON.parse(text);
                 
                 // Clear existing data
                 await this.clearAllData();
                 
                 // Import routines
-                for (const routine of importData.routines) {
-                    const id = await this.saveRoutine(routine);
-                    routine.id = id;
-                    this.routines.set(id, routine);
+                if (data.routines) {
+                    for (const routine of data.routines) {
+                        const id = await this.saveRoutine(routine);
+                        routine.id = id;
+                        this.routines.set(id, routine);
+                    }
                 }
                 
                 // Import entries
-                for (const entry of importData.entries) {
-                    await this.saveEntry(entry.date, entry.routineId, {
-                        count: entry.count || 0,
-                        isDone: entry.isDone || false
-                    });
+                if (data.entries) {
+                    for (const entry of data.entries) {
+                        await this.saveEntry(entry.date, entry.routineId, {
+                            count: entry.count || 0,
+                            isDone: entry.isDone || false
+                        });
+                    }
                 }
+                
+                // Clean up duplicate entries
+                await this.cleanDuplicateEntries();
                 
                 this.showToast('Data imported successfully!', 'success');
                 
@@ -951,6 +979,50 @@ class RoutineTracker {
         setTimeout(() => {
             toast.classList.remove('show');
         }, 3000);
+    }
+
+    async cleanDuplicateEntries() {
+        try {
+            console.log('Cleaning duplicate entries...');
+            
+            const transaction = this.db.transaction([this.entriesStore], 'readwrite');
+            const store = transaction.objectStore(this.entriesStore);
+            const request = store.getAll();
+            
+            request.onsuccess = () => {
+                const allEntries = request.result;
+                const seen = new Map(); // key: date_routineId, value: latest entry
+                
+                // Find the latest entry for each date/routine combination
+                allEntries.forEach(entry => {
+                    const key = `${entry.date}_${entry.routineId}`;
+                    const existing = seen.get(key);
+                    
+                    if (!existing || 
+                        (entry.timestamp && existing.timestamp && 
+                         new Date(entry.timestamp) > new Date(existing.timestamp)) ||
+                        (!existing.timestamp && entry.id > existing.id)) {
+                        seen.set(key, entry);
+                    }
+                });
+                
+                // Delete all entries and re-add only the latest ones
+                const clearRequest = store.clear();
+                clearRequest.onsuccess = () => {
+                    const latestEntries = Array.from(seen.values());
+                    let added = 0;
+                    
+                    latestEntries.forEach(entry => {
+                        const addRequest = store.add(entry);
+                        addRequest.onsuccess = () => added++;
+                    });
+                    
+                    console.log(`Cleaned up entries: kept ${added} out of ${allEntries.length}`);
+                };
+            };
+        } catch (error) {
+            console.error('Error cleaning duplicate entries:', error);
+        }
     }
 }
 
