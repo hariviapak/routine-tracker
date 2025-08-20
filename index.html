@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Routine Tracker</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/png" href="icons/icon-192x192.png">
+    <meta name="theme-color" content="#4CAF50">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Routine Tracker">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <h1>Daily Routine Tracker</h1>
+            <div class="date-display" id="currentDate"></div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="nav-tabs">
+            <button class="nav-tab active" id="todayTab" onclick="app.showTab('today')">Today</button>
+            <button class="nav-tab" id="tableTab" onclick="app.showTab('table')">Table View</button>
+            <button class="nav-tab" id="routinesTab" onclick="app.showTab('routines')">Manage Routines</button>
+        </nav>
+
+        <!-- Today View (Default) -->
+        <div id="todayView" class="tab-content active">
+            <section class="today-section">
+                <div class="today-header">
+                    <h2>Today's Routines</h2>
+                    <div class="today-date-display" id="todayDateDisplay"></div>
+                    <div class="view-toggle">
+                        <button class="view-btn active" id="gridViewBtn" onclick="app.toggleView('grid')">
+                            <span class="view-icon">⊞</span> Grid
+                        </button>
+                        <button class="view-btn" id="listViewBtn" onclick="app.toggleView('list')">
+                            <span class="view-icon">☰</span> List
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Today's Routines -->
+                <div class="today-routines" id="todayRoutines">
+                    <!-- Routine cards will be generated here -->
+                </div>
+            </section>
+        </div>
+
+        <!-- Table View -->
+        <div id="tableView" class="tab-content">
+            <section class="table-section">
+                <div class="table-header">
+                    <h2>Daily Routine Table</h2>
+                    <div class="table-controls">
+                        <div class="date-navigation">
+                            <button class="btn btn-secondary" id="prevDateBtn">← Previous</button>
+                            <div class="current-date-display" id="selectedDateDisplay"></div>
+                            <button class="btn btn-secondary" id="nextDateBtn">Next →</button>
+                        </div>
+                        <div class="date-picker">
+                            <input type="date" id="datePicker" max="">
+                            <button class="btn btn-primary" id="goToDateBtn">Go to Date</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="table-container">
+                    <table class="routine-table" id="routineTable">
+                        <thead>
+                            <tr>
+                                <th class="date-header">Date</th>
+                                <!-- Routine headers will be generated here -->
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            <!-- Table rows will be generated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <!-- Routines Management View -->
+        <div id="routinesView" class="tab-content">
+            <section class="routines-section">
+                <div class="routines-header">
+                    <h2>Manage Your Routines</h2>
+                    <p>Add, edit, or remove your daily routines</p>
+                </div>
+                
+                <!-- Current Routines -->
+                <div class="current-routines">
+                    <h3>Current Routines</h3>
+                    <div class="routines-grid" id="routinesGrid">
+                        <!-- Current routines will be displayed here -->
+                    </div>
+                </div>
+                
+                <!-- Add New Routine -->
+                <div class="add-routine-section">
+                    <h3>Add New Routine</h3>
+                    <div class="add-routine-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="newRoutineName">Routine Name:</label>
+                                <input type="text" id="newRoutineName" placeholder="e.g., Water, Medicine, Exercise">
+                            </div>
+                            <div class="form-group">
+                                <label for="newRoutineType">Type:</label>
+                                <select id="newRoutineType">
+                                    <option value="counter">Counter (1, 2, 3...)</option>
+                                    <option value="done">Done (✓)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="newRoutineTarget">Target:</label>
+                                <input type="number" id="newRoutineTarget" value="1" min="1">
+                            </div>
+                            <div class="form-group">
+                                <label for="newRoutineIcon">Icon:</label>
+                                <input type="text" id="newRoutineIcon"  value="">
+                            </div>
+                        </div>
+                        <button type="button" id="addRoutineBtn" class="btn btn-primary">Add Routine</button>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div class="toast" id="toast"></div>
+
+    <!-- Service Worker Registration -->
+    <script src="app.js"></script>
+    <script>
+        // Register service worker for PWA
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+                .then(registration => console.log('SW registered'))
+                .catch(error => console.log('SW registration failed'));
+        }
+    </script>
+</body>
+</html>
