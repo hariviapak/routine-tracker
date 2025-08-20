@@ -497,11 +497,7 @@ class RoutineTracker {
                     this.routines.set(routine.id, routine);
                 });
                 
-                // Add default routines if none exist
-                if (this.routines.size === 0) {
-                    this.addDefaultRoutines();
-                }
-                
+                // Don't automatically add default routines - let user choose
                 resolve();
             };
             request.onerror = () => reject(request.error);
@@ -852,6 +848,7 @@ class RoutineTracker {
     
     async restoreDefaultRoutines() {
         try {
+            console.log('Restoring default routines...');
             await this.addDefaultRoutines();
             this.showToast('Default routines restored!', 'success');
             
