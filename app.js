@@ -87,6 +87,12 @@ class RoutineTracker {
             this.importData();
         });
         
+        document.getElementById('resetDataBtn').addEventListener('click', () => {
+            if (confirm('Are you sure you want to reset the database? This will delete all your data and restore default routines.')) {
+                this.resetDatabase();
+            }
+        });
+        
         // Touch-friendly interactions
         this.setupTouchInteractions();
     }
@@ -533,8 +539,12 @@ class RoutineTracker {
         // Debug: Log routines count
         console.log('Rendering table with', this.routines.size, 'routines');
         
+        // Get all routines in a consistent order
+        const routineList = Array.from(this.routines.entries());
+        console.log('Routine list:', routineList.map(([id, routine]) => routine.name));
+        
         // Add routine headers
-        this.routines.forEach((routine, routineId) => {
+        routineList.forEach(([routineId, routine]) => {
             const th = document.createElement('th');
             th.innerHTML = `${routine.icon || ''} ${routine.name}`;
             tableHead.appendChild(th);
@@ -552,7 +562,9 @@ class RoutineTracker {
             dates.push(date.toISOString().split('T')[0]);
         }
         
-        // Create table rows
+        console.log('Dates to render:', dates);
+        
+        // Create ONE row per date
         for (const date of dates) {
             const row = document.createElement('tr');
             
@@ -572,10 +584,8 @@ class RoutineTracker {
             if (isToday) dateCell.style.fontWeight = 'bold';
             row.appendChild(dateCell);
             
-            // Routine cells - ensure we iterate in the same order as headers
-            const routineIds = Array.from(this.routines.keys());
-            for (const routineId of routineIds) {
-                const routine = this.routines.get(routineId);
+            // Add ONE cell per routine for this date
+            for (const [routineId, routine] of routineList) {
                 const cell = document.createElement('td');
                 const entry = await this.getEntry(date, routineId);
                 
@@ -605,6 +615,7 @@ class RoutineTracker {
         
         // Debug: Log final table structure
         console.log('Table rendered with', tableBody.children.length, 'rows');
+        console.log('Expected rows:', dates.length);
     }
     
     async getEntry(date, routineId) {
@@ -809,6 +820,28 @@ class RoutineTracker {
             
             transaction.onerror = () => reject(transaction.error);
         });
+    }
+    
+    async resetDatabase() {
+        try {
+            await this.clearAllData();
+            this.showToast('Database reset successfully!', 'success');
+            
+            // Reload routines (will add defaults)
+            await this.loadRoutines();
+            
+            // Refresh displays
+            if (this.currentTab === 'today') {
+                this.renderTodayView();
+            } else if (this.currentTab === 'routines') {
+                this.renderRoutinesManagement();
+            } else if (this.currentTab === 'table') {
+                this.renderTable();
+            }
+        } catch (error) {
+            console.error('Error resetting database:', error);
+            this.showToast('Error resetting database. Please try again.', 'error');
+        }
     }
     
     showToast(message, type = 'info') {
