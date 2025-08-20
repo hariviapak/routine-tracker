@@ -105,6 +105,12 @@ class RoutineTracker {
             }
         });
         
+        document.getElementById('nuclearResetBtn').addEventListener('click', () => {
+            if (confirm('⚠️ NUCLEAR RESET: This will completely clear ALL data, cache, and force a fresh start. This is irreversible! Continue?')) {
+                this.nuclearReset();
+            }
+        });
+        
         // Touch-friendly interactions
         this.setupTouchInteractions();
     }
@@ -877,27 +883,94 @@ class RoutineTracker {
     
     async forceRefresh() {
         try {
+            console.log('Starting force refresh...');
+            
             // Clear IndexedDB
             await this.clearAllData();
+            console.log('IndexedDB cleared');
             
             // Clear browser cache
             if ('caches' in window) {
                 const cacheNames = await caches.keys();
-                await Promise.all(cacheNames.map(name => caches.delete(name)));
+                console.log('Found caches:', cacheNames);
+                await Promise.all(cacheNames.map(name => {
+                    console.log('Deleting cache:', name);
+                    return caches.delete(name);
+                }));
             }
+            
+            // Clear localStorage and sessionStorage
+            localStorage.clear();
+            sessionStorage.clear();
+            console.log('Local storage cleared');
             
             // Unregister service worker
             if ('serviceWorker' in navigator) {
                 const registrations = await navigator.serviceWorker.getRegistrations();
-                await Promise.all(registrations.map(registration => registration.unregister()));
+                console.log('Found service workers:', registrations.length);
+                await Promise.all(registrations.map(registration => {
+                    console.log('Unregistering service worker');
+                    return registration.unregister();
+                }));
             }
             
-            // Force page reload
-            window.location.reload(true);
+            // Clear the routines map
+            this.routines.clear();
+            console.log('Routines map cleared');
+            
+            // Force page reload with cache busting
+            const timestamp = new Date().getTime();
+            window.location.href = window.location.href + '?v=' + timestamp;
         } catch (error) {
             console.error('Error during force refresh:', error);
             // Fallback to simple reload
             window.location.reload(true);
+        }
+    }
+    
+    async nuclearReset() {
+        try {
+            console.log('Starting nuclear reset...');
+            
+            // Clear IndexedDB
+            await this.clearAllData();
+            console.log('IndexedDB cleared');
+            
+            // Clear all browser storage
+            localStorage.clear();
+            sessionStorage.clear();
+            console.log('All storage cleared');
+            
+            // Clear all caches
+            if ('caches' in window) {
+                const cacheNames = await caches.keys();
+                console.log('Found caches:', cacheNames);
+                await Promise.all(cacheNames.map(name => {
+                    console.log('Deleting cache:', name);
+                    return caches.delete(name);
+                }));
+            }
+            
+            // Unregister all service workers
+            if ('serviceWorker' in navigator) {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                console.log('Found service workers:', registrations.length);
+                await Promise.all(registrations.map(registration => {
+                    console.log('Unregistering service worker');
+                    return registration.unregister();
+                }));
+            }
+            
+            // Clear the routines map
+            this.routines.clear();
+            console.log('Routines map cleared');
+            
+            // Force a complete page reload
+            window.location.replace(window.location.href + '?nuclear=' + Date.now());
+        } catch (error) {
+            console.error('Error during nuclear reset:', error);
+            // Ultimate fallback
+            window.location.replace(window.location.href);
         }
     }
     
