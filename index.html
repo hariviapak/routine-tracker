@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Daily Routine Tracker</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=2.0">
     <link rel="icon" type="image/png" href="icons/icon-192x192.png">
     <meta name="theme-color" content="#4CAF50">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -129,6 +129,12 @@
                         <button type="button" id="resetDataBtn" class="btn btn-danger">
                             🔄 Reset Database
                         </button>
+                        <button type="button" id="restoreDefaultsBtn" class="btn btn-info">
+                            📋 Restore Defaults
+                        </button>
+                        <button type="button" id="forceRefreshBtn" class="btn btn-warning">
+                            🔥 Force Refresh
+                        </button>
                     </div>
                     <p class="data-info">Export your routines and progress data for backup, or import from a previous backup file. Reset will clear all data and restore defaults.</p>
                 </div>
@@ -148,7 +154,7 @@
     <div class="toast" id="toast"></div>
 
     <!-- Service Worker Registration -->
-    <script src="app.js"></script>
+    <script src="app.js?v=2.0" defer></script>
     <script>
         // Register service worker for PWA
         if ('serviceWorker' in navigator) {

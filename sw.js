@@ -1,10 +1,10 @@
 // Service Worker for Routine Tracker PWA
-const CACHE_NAME = 'routine-tracker-v1';
+const CACHE_NAME = 'routine-tracker-v2.0';
 const urlsToCache = [
   '/',
   '/index.html',
-  '/styles.css',
-  '/app.js',
+  '/styles.css?v=2.0',
+  '/app.js?v=2.0',
   '/manifest.json'
 ];
 

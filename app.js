@@ -88,8 +88,20 @@ class RoutineTracker {
         });
         
         document.getElementById('resetDataBtn').addEventListener('click', () => {
-            if (confirm('Are you sure you want to reset the database? This will delete all your data and restore default routines.')) {
+            if (confirm('Are you sure you want to reset the database? This will delete all your data and routines.')) {
                 this.resetDatabase();
+            }
+        });
+        
+        document.getElementById('restoreDefaultsBtn').addEventListener('click', () => {
+            if (confirm('This will add back the default routines (Water, Medicine, etc.). Continue?')) {
+                this.restoreDefaultRoutines();
+            }
+        });
+        
+        document.getElementById('forceRefreshBtn').addEventListener('click', () => {
+            if (confirm('This will clear all data, cache, and reload the page. Are you sure?')) {
+                this.forceRefresh();
             }
         });
         
@@ -827,8 +839,8 @@ class RoutineTracker {
             await this.clearAllData();
             this.showToast('Database reset successfully!', 'success');
             
-            // Reload routines (will add defaults)
-            await this.loadRoutines();
+            // Clear the routines map
+            this.routines.clear();
             
             // Refresh displays
             if (this.currentTab === 'today') {
@@ -841,6 +853,51 @@ class RoutineTracker {
         } catch (error) {
             console.error('Error resetting database:', error);
             this.showToast('Error resetting database. Please try again.', 'error');
+        }
+    }
+    
+    async restoreDefaultRoutines() {
+        try {
+            await this.addDefaultRoutines();
+            this.showToast('Default routines restored!', 'success');
+            
+            // Refresh displays
+            if (this.currentTab === 'today') {
+                this.renderTodayView();
+            } else if (this.currentTab === 'routines') {
+                this.renderRoutinesManagement();
+            } else if (this.currentTab === 'table') {
+                this.renderTable();
+            }
+        } catch (error) {
+            console.error('Error restoring default routines:', error);
+            this.showToast('Error restoring default routines. Please try again.', 'error');
+        }
+    }
+    
+    async forceRefresh() {
+        try {
+            // Clear IndexedDB
+            await this.clearAllData();
+            
+            // Clear browser cache
+            if ('caches' in window) {
+                const cacheNames = await caches.keys();
+                await Promise.all(cacheNames.map(name => caches.delete(name)));
+            }
+            
+            // Unregister service worker
+            if ('serviceWorker' in navigator) {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                await Promise.all(registrations.map(registration => registration.unregister()));
+            }
+            
+            // Force page reload
+            window.location.reload(true);
+        } catch (error) {
+            console.error('Error during force refresh:', error);
+            // Fallback to simple reload
+            window.location.reload(true);
         }
     }
     
