@@ -10,7 +10,7 @@ class RoutineTracker {
         this.currentDate = new Date().toISOString().split('T')[0];
         this.routines = new Map();
         this.currentTab = 'today';
-        this.currentView = 'grid'; // 'grid' or 'list'
+        this.currentView = 'list'; // Changed from 'grid' to 'list' as default
         
         this.init();
     }
@@ -241,13 +241,16 @@ class RoutineTracker {
             card.className = 'routine-card';
             
             card.innerHTML = `
-                <button class="delete-routine" onclick="app.deleteRoutine(${routineId})">×</button>
                 <div class="routine-card-header">
                     <div class="routine-icon">${routine.icon || ''}</div>
                     <div class="routine-info">
                         <h4>${routine.name}</h4>
                         <div class="routine-type">${routine.type}</div>
                         <div class="routine-target">Target: ${routine.target}</div>
+                    </div>
+                    <div class="routine-actions">
+                        <button class="edit-routine" onclick="app.editRoutine(${routineId})" title="Edit routine">✏️</button>
+                        <button class="delete-routine" onclick="app.deleteRoutine(${routineId})" title="Delete routine">×</button>
                     </div>
                 </div>
             `;
@@ -288,7 +291,7 @@ class RoutineTracker {
             document.getElementById('newRoutineTarget').value = '1';
             document.getElementById('newRoutineIcon').value = ''; // Reset to empty
             
-            // Refresh displays
+            // Refresh displays without scrolling to top
             if (this.currentTab === 'today') {
                 this.renderTodayView();
             } else if (this.currentTab === 'routines') {
@@ -299,6 +302,93 @@ class RoutineTracker {
             console.error('Error adding routine:', error);
             this.showToast('Error adding routine. Please try again.', 'error');
         }
+    }
+    
+    async editRoutine(routineId) {
+        const routine = this.routines.get(routineId);
+        if (!routine) return;
+        
+        // Populate form with existing data
+        document.getElementById('newRoutineName').value = routine.name;
+        document.getElementById('newRoutineType').value = routine.type;
+        document.getElementById('newRoutineTarget').value = routine.target;
+        document.getElementById('newRoutineIcon').value = routine.icon || '';
+        
+        // Change button text and functionality
+        const addBtn = document.getElementById('addRoutineBtn');
+        addBtn.textContent = 'Update Routine';
+        addBtn.onclick = () => this.updateRoutine(routineId);
+        
+        // Scroll to form smoothly
+        document.querySelector('.add-routine-section').scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start' 
+        });
+    }
+    
+    async updateRoutine(routineId) {
+        const name = document.getElementById('newRoutineName').value.trim();
+        const type = document.getElementById('newRoutineType').value;
+        const target = parseInt(document.getElementById('newRoutineTarget').value);
+        const icon = document.getElementById('newRoutineIcon').value.trim();
+        
+        if (!name) {
+            this.showToast('Please enter a routine name', 'error');
+            return;
+        }
+        
+        const routine = this.routines.get(routineId);
+        if (!routine) return;
+        
+        // Update routine data
+        routine.name = name;
+        routine.type = type;
+        routine.target = target;
+        routine.icon = icon;
+        routine.updatedAt = new Date().toISOString();
+        
+        try {
+            await this.updateRoutineInDB(routine);
+            this.routines.set(routineId, routine);
+            
+            this.showToast('Routine updated successfully!', 'success');
+            
+            // Reset form and button
+            this.resetRoutineForm();
+            
+            // Refresh displays
+            if (this.currentTab === 'today') {
+                this.renderTodayView();
+            } else if (this.currentTab === 'routines') {
+                this.renderRoutinesManagement();
+            }
+            
+        } catch (error) {
+            console.error('Error updating routine:', error);
+            this.showToast('Error updating routine. Please try again.', 'error');
+        }
+    }
+    
+    resetRoutineForm() {
+        document.getElementById('newRoutineName').value = '';
+        document.getElementById('newRoutineType').value = 'counter';
+        document.getElementById('newRoutineTarget').value = '1';
+        document.getElementById('newRoutineIcon').value = '';
+        
+        const addBtn = document.getElementById('addRoutineBtn');
+        addBtn.textContent = 'Add Routine';
+        addBtn.onclick = () => this.addRoutine();
+    }
+    
+    async updateRoutineInDB(routine) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction([this.routinesStore], 'readwrite');
+            const store = transaction.objectStore(this.routinesStore);
+            const request = store.put(routine);
+            
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+        });
     }
     
     async deleteRoutine(routineId) {
@@ -422,18 +512,15 @@ class RoutineTracker {
             tableHead.appendChild(th);
         });
         
-        // Generate table rows for the last 7 days
+        // Generate table rows for current week (7 days)
         const dates = [];
-        for (let i = 6; i >= 0; i--) {
-            const date = new Date(this.currentDate);
-            date.setDate(date.getDate() - i);
-            dates.push(date.toISOString().split('T')[0]);
-        }
+        const today = new Date(this.currentDate);
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - today.getDay()); // Start from Sunday
         
-        // Add current date and next 3 days
-        for (let i = 1; i <= 3; i++) {
-            const date = new Date(this.currentDate);
-            date.setDate(date.getDate() + i);
+        for (let i = 0; i < 7; i++) {
+            const date = new Date(startOfWeek);
+            date.setDate(startOfWeek.getDate() + i);
             dates.push(date.toISOString().split('T')[0]);
         }
         
@@ -503,22 +590,14 @@ class RoutineTracker {
         const entry = await this.getEntry(date, routineId);
         const routine = this.routines.get(routineId);
         
-        let newCount = (entry ? entry.count : 0) + change;
-        newCount = Math.max(0, Math.min(newCount, routine.target * 2)); // Allow up to 2x target
+        if (!routine) return;
         
-        if (newCount === 0 && entry) {
-            await this.deleteEntry(entry.id);
-        } else {
-            await this.saveEntry({
-                date: date,
-                routineId: routineId,
-                count: newCount,
-                isDone: false,
-                timestamp: new Date().toISOString()
-            });
-        }
+        const currentCount = entry ? entry.count : 0;
+        const newCount = Math.max(0, currentCount + change);
         
-        // Refresh current view
+        await this.saveEntry(date, routineId, { count: newCount });
+        
+        // Refresh current view without scrolling to top
         if (this.currentTab === 'today') {
             this.renderTodayView();
         } else if (this.currentTab === 'table') {
@@ -527,21 +606,9 @@ class RoutineTracker {
     }
     
     async updateDone(date, routineId, isDone) {
-        const entry = await this.getEntry(date, routineId);
+        await this.saveEntry(date, routineId, { isDone: isDone });
         
-        if (isDone) {
-            await this.saveEntry({
-                date: date,
-                routineId: routineId,
-                count: 0,
-                isDone: true,
-                timestamp: new Date().toISOString()
-            });
-        } else if (entry) {
-            await this.deleteEntry(entry.id);
-        }
-        
-        // Refresh current view
+        // Refresh current view without scrolling to top
         if (this.currentTab === 'today') {
             this.renderTodayView();
         } else if (this.currentTab === 'table') {
@@ -549,25 +616,26 @@ class RoutineTracker {
         }
     }
     
-    async saveEntry(entry) {
+    async saveEntry(date, routineId, updates) {
         return new Promise((resolve, reject) => {
             const transaction = this.db.transaction([this.entriesStore], 'readwrite');
             const store = transaction.objectStore(this.entriesStore);
             
             // Check if entry already exists
             const index = store.index('date_routine');
-            const getRequest = index.get([entry.date, entry.routineId]);
+            const getRequest = index.get([date, routineId]);
             
             getRequest.onsuccess = () => {
                 if (getRequest.result) {
                     // Update existing entry
-                    entry.id = getRequest.result.id;
-                    const updateRequest = store.put(entry);
-                    updateRequest.onsuccess = () => resolve(entry.id);
+                    const updatedEntry = { ...getRequest.result, ...updates };
+                    const updateRequest = store.put(updatedEntry);
+                    updateRequest.onsuccess = () => resolve(updatedEntry.id);
                     updateRequest.onerror = () => reject(updateRequest.error);
                 } else {
                     // Add new entry
-                    const addRequest = store.add(entry);
+                    const newEntry = { date: date, routineId: routineId, ...updates };
+                    const addRequest = store.add(newEntry);
                     addRequest.onsuccess = () => resolve(addRequest.result);
                     addRequest.onerror = () => reject(addRequest.error);
                 }
@@ -617,3 +685,4 @@ if ('serviceWorker' in navigator) {
             });
     });
 }
+

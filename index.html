@@ -87,20 +87,7 @@
         <!-- Routines Management View -->
         <div id="routinesView" class="tab-content">
             <section class="routines-section">
-                <div class="routines-header">
-                    <h2>Manage Your Routines</h2>
-                    <p>Add, edit, or remove your daily routines</p>
-                </div>
-                
-                <!-- Current Routines -->
-                <div class="current-routines">
-                    <h3>Current Routines</h3>
-                    <div class="routines-grid" id="routinesGrid">
-                        <!-- Current routines will be displayed here -->
-                    </div>
-                </div>
-                
-                <!-- Add New Routine -->
+                <!-- Add New Routine Section -->
                 <div class="add-routine-section">
                     <h3>Add New Routine</h3>
                     <div class="add-routine-form">
@@ -122,10 +109,18 @@
                             </div>
                             <div class="form-group">
                                 <label for="newRoutineIcon">Icon:</label>
-                                <input type="text" id="newRoutineIcon"  value="">
+                                <input type="text" id="newRoutineIcon" placeholder="💧" value="">
                             </div>
                         </div>
                         <button type="button" id="addRoutineBtn" class="btn btn-primary">Add Routine</button>
+                    </div>
+                </div>
+                
+                <!-- Current Routines -->
+                <div class="current-routines">
+                    <h3>Current Routines</h3>
+                    <div class="routines-grid" id="routinesGrid">
+                        <!-- Current routines will be displayed here -->
                     </div>
                 </div>
             </section>

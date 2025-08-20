@@ -15,7 +15,7 @@ A beautiful, mobile-friendly Progressive Web App (PWA) for tracking daily routin
 
 ## 🚀 Live Demo
 
-Visit the live app: [https://yourusername.github.io/routine-tracker](https://yourusername.github.io/routine-tracker)
+Visit the live app: [https://hariviapak.github.io/routine-tracker](https://hariviapak.github.io/routine-tracker)
 
 ## 📱 Installation on Phone
 
