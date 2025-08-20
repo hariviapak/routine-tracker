@@ -78,6 +78,15 @@ class RoutineTracker {
             this.addRoutine();
         });
         
+        // Data import/export
+        document.getElementById('exportDataBtn').addEventListener('click', () => {
+            this.exportData();
+        });
+        
+        document.getElementById('importDataBtn').addEventListener('click', () => {
+            this.importData();
+        });
+        
         // Touch-friendly interactions
         this.setupTouchInteractions();
     }
@@ -652,6 +661,129 @@ class RoutineTracker {
             
             request.onsuccess = () => resolve();
             request.onerror = () => reject(request.error);
+        });
+    }
+    
+    async exportData() {
+        try {
+            // Get all routines
+            const routines = Array.from(this.routines.values());
+            
+            // Get all entries
+            const entries = await this.getAllEntries();
+            
+            const exportData = {
+                version: '1.0',
+                exportDate: new Date().toISOString(),
+                routines: routines,
+                entries: entries
+            };
+            
+            // Create and download file
+            const dataStr = JSON.stringify(exportData, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `routine-tracker-backup-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            this.showToast('Data exported successfully!', 'success');
+        } catch (error) {
+            console.error('Error exporting data:', error);
+            this.showToast('Error exporting data. Please try again.', 'error');
+        }
+    }
+    
+    async importData() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        
+        input.onchange = async (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            try {
+                const text = await file.text();
+                const importData = JSON.parse(text);
+                
+                // Validate import data
+                if (!importData.routines || !importData.entries) {
+                    throw new Error('Invalid backup file format');
+                }
+                
+                // Clear existing data
+                await this.clearAllData();
+                
+                // Import routines
+                for (const routine of importData.routines) {
+                    const id = await this.saveRoutine(routine);
+                    routine.id = id;
+                    this.routines.set(id, routine);
+                }
+                
+                // Import entries
+                for (const entry of importData.entries) {
+                    await this.saveEntry(entry.date, entry.routineId, {
+                        count: entry.count || 0,
+                        isDone: entry.isDone || false
+                    });
+                }
+                
+                this.showToast('Data imported successfully!', 'success');
+                
+                // Refresh displays
+                if (this.currentTab === 'today') {
+                    this.renderTodayView();
+                } else if (this.currentTab === 'routines') {
+                    this.renderRoutinesManagement();
+                } else if (this.currentTab === 'table') {
+                    this.renderTable();
+                }
+                
+            } catch (error) {
+                console.error('Error importing data:', error);
+                this.showToast('Error importing data. Please check the file format.', 'error');
+            }
+        };
+        
+        input.click();
+    }
+    
+    async getAllEntries() {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction([this.entriesStore], 'readonly');
+            const store = transaction.objectStore(this.entriesStore);
+            const request = store.getAll();
+            
+            request.onsuccess = () => resolve(request.result || []);
+            request.onerror = () => reject(request.error);
+        });
+    }
+    
+    async clearAllData() {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction([this.routinesStore, this.entriesStore], 'readwrite');
+            
+            // Clear routines
+            const routinesStore = transaction.objectStore(this.routinesStore);
+            const routinesRequest = routinesStore.clear();
+            
+            // Clear entries
+            const entriesStore = transaction.objectStore(this.entriesStore);
+            const entriesRequest = entriesStore.clear();
+            
+            transaction.oncomplete = () => {
+                this.routines.clear();
+                resolve();
+            };
+            
+            transaction.onerror = () => reject(transaction.error);
         });
     }
     
