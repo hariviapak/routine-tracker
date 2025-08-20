@@ -93,12 +93,6 @@ class RoutineTracker {
             }
         });
         
-        document.getElementById('restoreDefaultsBtn').addEventListener('click', () => {
-            if (confirm('This will add back the default routines (Water, Medicine, etc.). Continue?')) {
-                this.restoreDefaultRoutines();
-            }
-        });
-        
         // Touch-friendly interactions
         this.setupTouchInteractions();
     }
@@ -497,37 +491,10 @@ class RoutineTracker {
                     this.routines.set(routine.id, routine);
                 });
                 
-                // Don't automatically add default routines - let user choose
                 resolve();
             };
             request.onerror = () => reject(request.error);
         });
-    }
-    
-    async addDefaultRoutines() {
-        const defaultRoutines = [
-            { name: 'Water', type: 'counter', target: 7, icon: '' },
-            { name: 'Medicine', type: 'counter', target: 2, icon: '' },
-            { name: 'Sugar Cane Juice', type: 'done', target: 1, icon: '' },
-            { name: 'Fruits', type: 'counter', target: 2, icon: '' },
-            { name: 'Yoga', type: 'done', target: 1, icon: '' },
-            { name: 'Clean Diet', type: 'done', target: 1, icon: '' },
-            { name: 'Coconut Water', type: 'done', target: 1, icon: '' }
-        ];
-        
-        for (const routine of defaultRoutines) {
-            try {
-                // Check if routine already exists
-                const existingRoutine = Array.from(this.routines.values()).find(r => r.name === routine.name);
-                if (!existingRoutine) {
-                    const id = await this.saveRoutine(routine);
-                    routine.id = id;
-                    this.routines.set(id, routine);
-                }
-            } catch (error) {
-                console.error('Error adding default routine:', error);
-            }
-        }
     }
     
     async renderTable() {
@@ -843,26 +810,6 @@ class RoutineTracker {
         } catch (error) {
             console.error('Error resetting database:', error);
             this.showToast('Error resetting database. Please try again.', 'error');
-        }
-    }
-    
-    async restoreDefaultRoutines() {
-        try {
-            console.log('Restoring default routines...');
-            await this.addDefaultRoutines();
-            this.showToast('Default routines restored!', 'success');
-            
-            // Refresh displays
-            if (this.currentTab === 'today') {
-                this.renderTodayView();
-            } else if (this.currentTab === 'routines') {
-                this.renderRoutinesManagement();
-            } else if (this.currentTab === 'table') {
-                this.renderTable();
-            }
-        } catch (error) {
-            console.error('Error restoring default routines:', error);
-            this.showToast('Error restoring default routines. Please try again.', 'error');
         }
     }
     
