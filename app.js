@@ -93,6 +93,27 @@ class RoutineTracker {
             }
         });
         
+        document.getElementById('cleanupEntriesBtn').addEventListener('click', async () => {
+            if (confirm('This will remove duplicate entries and keep only the latest entry for each date/routine combination. Continue?')) {
+                try {
+                    await this.cleanDuplicateEntries();
+                    this.showToast('Entries cleaned up successfully!', 'success');
+                    
+                    // Refresh displays
+                    if (this.currentTab === 'today') {
+                        this.renderTodayView();
+                    } else if (this.currentTab === 'routines') {
+                        this.renderRoutinesManagement();
+                    } else if (this.currentTab === 'table') {
+                        this.renderTable();
+                    }
+                } catch (error) {
+                    console.error('Error cleaning entries:', error);
+                    this.showToast('Error cleaning entries', 'error');
+                }
+            }
+        });
+        
         // Touch-friendly interactions
         this.setupTouchInteractions();
     }
@@ -982,47 +1003,64 @@ class RoutineTracker {
     }
 
     async cleanDuplicateEntries() {
-        try {
-            console.log('Cleaning duplicate entries...');
-            
-            const transaction = this.db.transaction([this.entriesStore], 'readwrite');
-            const store = transaction.objectStore(this.entriesStore);
-            const request = store.getAll();
-            
-            request.onsuccess = () => {
-                const allEntries = request.result;
-                const seen = new Map(); // key: date_routineId, value: latest entry
+        return new Promise((resolve, reject) => {
+            try {
+                console.log('Cleaning duplicate entries...');
                 
-                // Find the latest entry for each date/routine combination
-                allEntries.forEach(entry => {
-                    const key = `${entry.date}_${entry.routineId}`;
-                    const existing = seen.get(key);
-                    
-                    if (!existing || 
-                        (entry.timestamp && existing.timestamp && 
-                         new Date(entry.timestamp) > new Date(existing.timestamp)) ||
-                        (!existing.timestamp && entry.id > existing.id)) {
-                        seen.set(key, entry);
-                    }
-                });
+                const transaction = this.db.transaction([this.entriesStore], 'readwrite');
+                const store = transaction.objectStore(this.entriesStore);
+                const request = store.getAll();
                 
-                // Delete all entries and re-add only the latest ones
-                const clearRequest = store.clear();
-                clearRequest.onsuccess = () => {
-                    const latestEntries = Array.from(seen.values());
-                    let added = 0;
+                request.onsuccess = () => {
+                    const allEntries = request.result;
+                    console.log(`Found ${allEntries.length} total entries`);
                     
-                    latestEntries.forEach(entry => {
-                        const addRequest = store.add(entry);
-                        addRequest.onsuccess = () => added++;
+                    const seen = new Map(); // key: date_routineId, value: latest entry
+                    
+                    // Find the latest entry for each date/routine combination
+                    allEntries.forEach(entry => {
+                        const key = `${entry.date}_${entry.routineId}`;
+                        const existing = seen.get(key);
+                        
+                        if (!existing || 
+                            (entry.timestamp && existing.timestamp && 
+                             new Date(entry.timestamp) > new Date(existing.timestamp)) ||
+                            (!existing.timestamp && entry.id > existing.id)) {
+                            seen.set(key, entry);
+                        }
                     });
                     
-                    console.log(`Cleaned up entries: kept ${added} out of ${allEntries.length}`);
+                    console.log(`Found ${seen.size} unique date/routine combinations`);
+                    
+                    // Delete all entries and re-add only the latest ones
+                    const clearRequest = store.clear();
+                    clearRequest.onsuccess = () => {
+                        const latestEntries = Array.from(seen.values());
+                        let added = 0;
+                        
+                        latestEntries.forEach(entry => {
+                            const addRequest = store.add(entry);
+                            addRequest.onsuccess = () => {
+                                added++;
+                                if (added === latestEntries.length) {
+                                    console.log(`Cleaned up entries: kept ${added} out of ${allEntries.length}`);
+                                    resolve();
+                                }
+                            };
+                        });
+                        
+                        if (latestEntries.length === 0) {
+                            resolve();
+                        }
+                    };
                 };
-            };
-        } catch (error) {
-            console.error('Error cleaning duplicate entries:', error);
-        }
+                
+                request.onerror = () => reject(request.error);
+            } catch (error) {
+                console.error('Error cleaning duplicate entries:', error);
+                reject(error);
+            }
+        });
     }
 }
 
